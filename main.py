@@ -1,3 +1,4 @@
+#!venv/bin/python
 import json
 from math import ceil
 from os import getenv
