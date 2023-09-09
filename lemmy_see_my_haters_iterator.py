@@ -1,3 +1,4 @@
+import math
 from abc import ABC
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -104,4 +105,4 @@ class LemmySeeMyHatersIterator(AsyncIterator[LemmyVote], ABC):
 
         :returns: The total count of votes.
         """
-        return self._current_batch.total_count
+        return math.ceil(self._current_batch.total_count // self.params["limit"])
