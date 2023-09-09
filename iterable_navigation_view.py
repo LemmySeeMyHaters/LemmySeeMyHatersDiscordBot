@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Sequence, Optional, Any, MutableMapping, cast
+from typing import Sequence, Optional, Any, MutableMapping
 
 import hikari
 from miru import View, Context, ViewContext
@@ -87,8 +87,11 @@ class IteratorNavigationView(View):
 
         batch_pages = []
         for _ in range(self.pages.params["limit"]):
-            vote = await anext(pages)
-            batch_pages.append(str(vote))
+            try:
+                vote = await anext(pages)
+                batch_pages.append(str(vote))
+            except StopAsyncIteration:
+                break
 
         embed = hikari.Embed(title=self.pages.params["url"], description="\n".join(batch_pages))
         embeds = [embed] if isinstance(embed, hikari.Embed) else []

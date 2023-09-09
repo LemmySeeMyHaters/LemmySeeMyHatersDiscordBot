@@ -105,4 +105,4 @@ class LemmySeeMyHatersIterator(AsyncIterator[LemmyVote], ABC):
 
         :returns: The total count of votes.
         """
-        return math.ceil(self._current_batch.total_count // self.params["limit"])
+        return math.ceil(self._current_batch.total_count / self.params["limit"])
