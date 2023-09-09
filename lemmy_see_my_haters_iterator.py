@@ -96,8 +96,12 @@ class LemmySeeMyHatersIterator(AsyncIterator[LemmyVote], ABC):
             else:
                 self._has_next = False
 
-        self._batch_idx += 1
-        return vote_list[self._batch_idx - 1]
+        # If we don't get any votes on first request
+        if vote_list:
+            self._batch_idx += 1
+            return vote_list[self._batch_idx - 1]
+        else:
+            raise StopAsyncIteration
 
     def __len__(self) -> int:
         """
