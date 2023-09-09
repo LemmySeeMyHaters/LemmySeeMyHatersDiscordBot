@@ -86,12 +86,12 @@ class IteratorNavigationView(View):
         """Get the page content that is to be sent."""
 
         batch_pages = []
-        for _ in range(cast(self.pages.params["limit"], int)):
+        for _ in range(self.pages.params["limit"]):
             vote = await anext(pages)
             batch_pages.append(str(vote))
 
         embed = hikari.Embed(title=self.pages.params["url"], description="\n".join(batch_pages))
-        embeds = [embed] if isinstance(batch_pages, hikari.Embed) else []
+        embeds = [embed] if isinstance(embed, hikari.Embed) else []
         self._cached_pages.append(embeds)
 
         if not embeds:
@@ -111,13 +111,16 @@ class IteratorNavigationView(View):
         await self._update_buttons()
 
         embeds = self._cached_pages[self.current_page]
-
-        self._inter = context.interaction  #
         if self.ephemeral:
-            flag = hikari.MessageFlag.EPHEMERAL
-            await context.edit_response(content="", embeds=embeds, component=self, flags=flag, attachment=None)
+            payload_dict = dict(
+                content="",
+                embeds=embeds,
+                components=self,
+                flags=hikari.MessageFlag.EPHEMERAL,
+            )
         else:
-            await context.edit_response(content="", embeds=embeds, component=self, attachment=None)
+            payload_dict = dict(content="", embeds=embeds, components=self)
+        await context.edit_response(**payload_dict, attachment=None)
 
     async def send_page(self, context: Context[Any], page_index: Optional[int] = None) -> None:
         """Send a page, editing the original message.

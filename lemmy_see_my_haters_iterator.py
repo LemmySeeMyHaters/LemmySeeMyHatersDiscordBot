@@ -1,7 +1,7 @@
 from abc import ABC
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypedDict
 
 import aiohttp
 
@@ -23,9 +23,21 @@ class VotesResponse:
     next_offset: Optional[int]
 
 
-async def fetch_next_data(url: str, query: dict[str, str | int]) -> VotesResponse:
+class IteratorParams(TypedDict):
+    url: str
+    limit: int
+    offset: int
+    username: Optional[str]
+    votes_filter: str
+
+
+async def fetch_next_data(url: str, query: IteratorParams) -> VotesResponse:
+    tmp_query = {"url": query["url"], "limit": query["limit"], "offset": query["offset"], "votes_filter": query["votes_filter"]}
+    if query["username"] is not None:
+        tmp_query["username"] = query["username"]
+
     async with (aiohttp.ClientSession() as session):
-        async with session.get(url, params=query) as resp:
+        async with session.get(url, params=tmp_query) as resp:
             response = await resp.json()
             return VotesResponse(votes=[LemmyVote(**x) for x in response["votes"]], next_offset=response["next_offset"], total_count=response["total_count"])
 
@@ -52,9 +64,7 @@ class LemmySeeMyHatersIterator(AsyncIterator[LemmyVote], ABC):
     def __init__(self, api_base_path: str, url: str, limit: int, offset: int, username: Optional[str], votes_filter: str):
         super().__init__()
         self.api_base_path: str = api_base_path
-        self.params: dict[str, str | int] = {"url": url, "limit": limit, "offset": offset, "votes_filter": votes_filter}
-        if username is not None:
-            self.params["username"] = username
+        self.params: IteratorParams = {"url": url, "limit": limit, "offset": offset, "username": username, "votes_filter": votes_filter}
         self._current_batch: VotesResponse = VotesResponse(votes=[], next_offset=0, total_count=0)
         self._batch_idx: int = 0
         self._has_next: bool = True
