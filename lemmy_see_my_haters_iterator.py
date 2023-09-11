@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, TypedDict
 
 import aiohttp
+import hikari
 
 
 @dataclass(frozen=True)
@@ -12,9 +13,10 @@ class LemmyVote:
     name: str
     score: int
     actor_id: str
+    created_utc: float
 
     def __str__(self) -> str:
-        return f"- [{self.name}]({self.actor_id}): {self.score}"
+        return f"- [<t:{int(self.created_utc)}>] [{self.name}]({self.actor_id}): **{self.score}**"
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,9 @@ class VotesResponse:
     votes: list[LemmyVote]
     total_count: int
     next_offset: Optional[int]
+    total_score: int
+    upvotes: int
+    downvotes: int
 
 
 class IteratorParams(TypedDict):
@@ -40,10 +45,17 @@ async def fetch_next_data(url: str, query: IteratorParams) -> VotesResponse:
     async with (aiohttp.ClientSession() as session):
         async with session.get(url, params=tmp_query) as resp:
             response = await resp.json()
-            return VotesResponse(votes=[LemmyVote(**x) for x in response["votes"]], next_offset=response["next_offset"], total_count=response["total_count"])
+            return VotesResponse(
+                votes=[LemmyVote(**x) for x in response["votes"]],
+                next_offset=response["next_offset"],
+                total_count=response["total_count"],
+                total_score=response["total_score"],
+                upvotes=response["upvotes"],
+                downvotes=response["downvotes"],
+            )
 
 
-class LemmySeeMyHatersIterator(AsyncIterator[LemmyVote], ABC):
+class LemmySeeMyHatersIterator(AsyncIterator[hikari.Embed], ABC):
     """
     Iterator class for fetching Lemmy votes with optional filtering by username and votes filter.
 
@@ -66,40 +78,44 @@ class LemmySeeMyHatersIterator(AsyncIterator[LemmyVote], ABC):
         super().__init__()
         self.api_base_path: str = api_base_path
         self.params: IteratorParams = {"url": url, "limit": limit, "offset": offset, "username": username, "votes_filter": votes_filter}
-        self._current_batch: VotesResponse = VotesResponse(votes=[], next_offset=0, total_count=0)
-        self._batch_idx: int = 0
+        self._current_batch: VotesResponse = VotesResponse(votes=[], next_offset=0, total_count=0, total_score=0, upvotes=0, downvotes=0)
         self._has_next: bool = True
 
-    def __aiter__(self) -> AsyncIterator[LemmyVote]:
+    def __aiter__(self) -> AsyncIterator[hikari.Embed]:
         """
         Returns the iterator object.
         """
         return self
 
-    async def __anext__(self) -> LemmyVote:
+    async def __anext__(self) -> hikari.Embed:
         """
         Asynchronously fetches the next Lemmy vote.
 
         :raises StopAsyncIteration: When there are no more votes to fetch.
         :returns: The next LemmyVote object.
         """
-        vote_list = self._current_batch.votes
-        if self._batch_idx >= len(vote_list):
-            if not self._has_next:
-                raise StopAsyncIteration
-            self._current_batch = await fetch_next_data(self.api_base_path, self.params)
-            vote_list = self._current_batch.votes
-            self._batch_idx = 0
-            if self._current_batch.next_offset is not None:
-                self._has_next = True
-                self.params["offset"] = self._current_batch.next_offset
-            else:
-                self._has_next = False
+        if not self._has_next:
+            raise StopAsyncIteration
+
+        self._current_batch = await fetch_next_data(self.api_base_path, self.params)
+        if self._current_batch.next_offset is not None:
+            self._has_next = True
+            self.params["offset"] = self._current_batch.next_offset
+        else:
+            self._has_next = False
 
         # If we don't get any votes on first request
+        vote_list = "\n".join(str(vote) for vote in self._current_batch.votes)
+        desc = f"""**Votes Summary**:
+        
+        **Upvotes**: {self._current_batch.upvotes}
+        **Downvotes**: {self._current_batch.downvotes}
+        **Upvote/Downvote Ratio**: {self._current_batch.upvotes / self._current_batch.total_count:.3f}
+        
+        {vote_list}
+        """
         if vote_list:
-            self._batch_idx += 1
-            return vote_list[self._batch_idx - 1]
+            return hikari.Embed(title=self.params["url"], description=desc)
         else:
             raise StopAsyncIteration
 

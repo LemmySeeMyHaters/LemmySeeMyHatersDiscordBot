@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 from typing import Sequence, Optional, Any, MutableMapping
 
@@ -85,20 +86,14 @@ class IteratorNavigationView(View):
     async def _get_page_payload(self, pages: LemmySeeMyHatersIterator) -> MutableMapping[str, Any]:
         """Get the page content that is to be sent."""
 
-        batch_pages = []
-        for _ in range(self.pages.params["limit"]):
-            try:
-                vote = await anext(pages)
-                batch_pages.append(str(vote))
-            except StopAsyncIteration:
-                break
+        with contextlib.suppress(StopIteration):
+            vote = await anext(pages)
 
-        embed = hikari.Embed(title=self.pages.params["url"], description="\n".join(batch_pages))
-        embeds = [embed] if isinstance(embed, hikari.Embed) else []
+        embeds = [vote] if isinstance(vote, hikari.Embed) else []
         self._cached_pages.append(embeds)
 
         if not embeds:
-            raise TypeError(f"Expected type 'str' or 'hikari.Embed' to send as page, not '{batch_pages.__class__.__name__}'.")
+            raise TypeError(f"Expected type 'str' or 'hikari.Embed' to send as page, not '{vote.__class__.__name__}'.")
 
         if self.ephemeral:
             return dict(
