@@ -86,8 +86,10 @@ class IteratorNavigationView(View):
     async def _get_page_payload(self, pages: LemmySeeMyHatersIterator) -> MutableMapping[str, Any]:
         """Get the page content that is to be sent."""
 
-        with contextlib.suppress(StopAsyncIteration):
+        try:
             vote = await anext(pages)
+        except StopAsyncIteration:
+            vote = []
 
         embeds = [vote] if isinstance(vote, hikari.Embed) else []
         self._cached_pages.append(embeds)
