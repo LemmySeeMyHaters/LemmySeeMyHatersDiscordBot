@@ -106,11 +106,12 @@ class LemmySeeMyHatersIterator(AsyncIterator[hikari.Embed], ABC):
 
         # If we don't get any votes on first request
         vote_list = "\n".join(str(vote) for vote in self._current_batch.votes)
+        vote_ratio = self._current_batch.upvotes / self._current_batch.total_count if self._current_batch.total_count > 0 else 0
         desc = f"""**Votes Summary**:
         
         **Upvotes**: {self._current_batch.upvotes}
         **Downvotes**: {self._current_batch.downvotes}
-        **Upvote/Downvote Ratio**: {self._current_batch.upvotes / self._current_batch.total_count:.3f}
+        **Upvote/Downvote Ratio**: {vote_ratio:.3f}
         
         {vote_list}
         """
