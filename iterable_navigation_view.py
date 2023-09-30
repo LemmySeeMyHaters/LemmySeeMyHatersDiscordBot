@@ -89,7 +89,7 @@ class IteratorNavigationView(View):
         try:
             vote = await anext(pages)
         except StopAsyncIteration:
-            vote = []
+            vote = hikari.Embed(title=pages.params["url"], description="Nothing to see here.")
 
         embeds = [vote] if isinstance(vote, hikari.Embed) else []
         self._cached_pages.append(embeds)
